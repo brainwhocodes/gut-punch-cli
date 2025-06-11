@@ -1,0 +1,118 @@
+name: Auto Increment Master Version
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: write # Required to commit and push changes to package.json and bun.lock
+
+jobs:
+  increment_version:
+    runs-on: ubuntu-latest
+    # Prevent workflow from running on commits made by this workflow's GITHUB_TOKEN
+    if: github.actor != 'github-actions[bot]'
+    env:
+      NODE_ENV: production
+
+    steps:
+      - name: Checkout master branch
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          token: ${{ secrets.GITHUB_TOKEN }} # GITHUB_TOKEN commits don't trigger new workflows by default
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Configure Git
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build Project
+        run: bun run build
+        env:
+          NODE_ENV: production
+
+      - name: Calculate New Semantic Version
+        id: versioning
+        run: |
+          if [ ! -f package.json ]; then
+            echo "package.json not found!"
+            exit 1
+          fi
+          CURRENT_VERSION=$(jq -r .version package.json)
+          if [ -z "$CURRENT_VERSION" ] || [ "$CURRENT_VERSION" == "null" ]; then
+            echo "Version not found or is null in package.json. Cannot increment."
+            exit 1
+          fi
+          
+          echo "Current version: $CURRENT_VERSION"
+
+          if ! [[ "$CURRENT_VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "Version '$CURRENT_VERSION' is not in X.Y.Z format."
+            exit 1
+          fi
+          
+          MAJOR=${BASH_REMATCH[1]}
+          MINOR=${BASH_REMATCH[2]}
+          PATCH=${BASH_REMATCH[3]}
+
+          # Increment patch version
+          PATCH=$((PATCH + 1))
+
+          # Check for patch version rollover
+          if [ "$PATCH" -ge 50 ]; then
+            PATCH=0
+            MINOR=$((MINOR + 1))
+            
+            # Check for minor version rollover
+            if [ "$MINOR" -ge 10 ]; then
+              MINOR=0
+              MAJOR=$((MAJOR + 1))
+            fi
+          fi
+
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          echo "New version: $NEW_VERSION"
+
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Update package.json
+        run: |
+          # Use jq to update the version in package.json
+          # Creating a temporary file is a safe way to modify JSON in-place with jq
+          jq --arg new_ver "${{ steps.versioning.outputs.new_version }}" '.version = $new_ver' package.json > package.json.tmp && mv package.json.tmp package.json
+          echo "Updated package.json to version ${{ steps.versioning.outputs.new_version }}"
+
+      - name: Update bun.lock
+        run: |
+          # This command updates bun.lock based on the new version in package.json
+          bun install
+          echo "Updated bun.lock"
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          # Check if git status reports any changes to package.json or bun.lock
+          if git diff --quiet HEAD -- package.json bun.lock; then
+            echo "No version changes to commit."
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "Version changes detected in package.json or bun.lock."
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git add package.json bun.lock
+          git commit -m "chore(version): auto-increment master version to ${{ steps.versioning.outputs.new_version }}"
+          git push origin master
