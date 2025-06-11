@@ -11,8 +11,8 @@
     "declaration": true,
     "sourceMap": true,
     "types": ["bun-types"],
-    "allowImportingTsExtensions": true,
-    "noEmit": true
+
+
   },
   "include": ["src/**/*", "test/**/*.ts"]
 }

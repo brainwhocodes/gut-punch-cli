@@ -10,7 +10,7 @@
   },
   "types": "src/index.d.ts",
   "scripts": {
-    "build": "bun run bun-build.ts",
+    "build": "bun build ./src/index.ts ./src/cli.ts --outdir ./dist --target bun",
     "dev": "bun --watch src/index.ts",
     "test": "bun test",
     "test:coverage": "bun test --coverage",

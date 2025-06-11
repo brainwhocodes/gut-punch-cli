@@ -1,10 +1,10 @@
 import { readdirSync, existsSync } from "node:fs";
-import { join, resolve, dirname } from "node:path";
+import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { loadConfig, GutPunchConfig, findConfigDir } from "../config/index";
-import { JobDb, JobDefinitionRecord, JobRunRecord } from "../db/drizzle";
+import { JobDb, JobRunRecord } from "../db/drizzle";
 import { JobRunStatus, QueuePriority, JobDefinitionStatus } from "./enums";
-import { PriorityQueue, QueueItem } from "./queue";
+import { PriorityQueue } from "./queue";
 import type { Job, JobDefinition, JobResult } from './types';
 
 export class Scheduler {
@@ -173,8 +173,8 @@ export class Scheduler {
       await this.db.updateJobRun(runId, {
         status: result.status,
         finished_at: new Date().toISOString(),
-        output: result.output ? JSON.stringify(result.output) : null,
-        error: result.error ?? undefined, // Convert null to undefined
+        output: result.output ? JSON.stringify(result.output) : undefined,
+        error: result.error ?? undefined,
       });
 
       if (result.status === JobRunStatus.Success && jobDef.reschedule && jobDef.rescheduleIn) {
