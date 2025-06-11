@@ -1,0 +1,92 @@
+name: Build and Release CLI Executables
+
+on:
+  push:
+    tags:
+      - 'v*.*.*' # Trigger on version tags like v1.0.0
+
+jobs:
+  build-and-release:
+    name: Build and Release Executable (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: windows-latest
+            asset_name_suffix: .exe
+          - os: ubuntu-latest
+            asset_name_suffix: ''
+          - os: macos-latest
+            asset_name_suffix: ''
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Get tag
+        id: get_tag
+        run: echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Determine executable name
+        id: exec_name
+        run: |
+          EXECUTABLE_NAME="gut-punch-cli-${{ steps.get_tag.outputs.tag }}-${{ matrix.os }}${{ matrix.asset_name_suffix }}"
+          echo "name=$EXECUTABLE_NAME" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Bundle executable with Bun
+        run: bun build ./src/cli.ts --compile --outfile ./${{ steps.exec_name.outputs.name }}
+
+      - name: Archive executable (Windows)
+        if: matrix.os == 'windows-latest'
+        run: Compress-Archive -Path .\${{ steps.exec_name.outputs.name }} -DestinationPath .\${{ steps.exec_name.outputs.name }}.zip
+        shell: pwsh
+
+      - name: Archive executable (Linux/macOS)
+        if: matrix.os != 'windows-latest'
+        run: zip ./${{ steps.exec_name.outputs.name }}.zip ./${{ steps.exec_name.outputs.name }}
+
+      - name: Upload executable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gutpunch-cli-${{ matrix.os }}
+          path: ./${{ steps.exec_name.outputs.name }}.zip
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: build-and-release
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Get tag
+        id: get_tag
+        run: echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./release-artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_tag.outputs.tag }}
+          name: Release ${{ steps.get_tag.outputs.tag }}
+          files: './release-artifacts/**/*.zip'

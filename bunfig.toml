@@ -1,0 +1,21 @@
+[install]
+# Use the exact versions specified in package.json
+exact = true
+
+[test]
+# Configure test environment
+environment = "node"
+# Include all test files
+include = ["test/**/*.test.ts"]
+# Enable coverage reporting (reporters are typically handled by CLI flags or default behavior)
+coverage = true
+
+[build]
+# Target Node.js environment
+target = "node"
+# Output directory
+outdir = "dist"
+# Enable source maps
+sourcemap = "external"
+# Minification setting
+minify = false

@@ -1,0 +1,54 @@
+{
+  "name": "gut-punch-cli",
+  "version": "0.1.2",
+  "type": "module",
+  "description": "CLI for scheduling and running GutPunch jobs",
+  "main": "src/index.ts",
+  "module": "src/index.ts",
+  "bin": {
+    "gut-punch-cli": "src/cli.ts"
+  },
+  "types": "src/index.d.ts",
+  "scripts": {
+    "build": "vite build",
+    "build:bun": "bun run bun-build.ts",
+    "dev": "vite",
+    "dev:bun": "bun --watch src/index.ts",
+    "test": "bun test",
+    "test:coverage": "bun test --coverage",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
+    "db:push:test": "drizzle-kit push --config=drizzle.test.config.ts",
+    "db:migrate": "drizzle-kit migrate",
+    "bundle:executable": "bun build ./src/cli.ts --compile --outfile ./gut-punch-cli"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^13.1.0",
+    "drizzle-orm": "^0.42.0",
+    "yaml": "^2.7.1",
+    "gut-punch": "file:../gut-punch"
+  },
+  "devDependencies": {
+    "@commander-js/extra-typings": "^13.1.0",
+    "@types/bun": "1.2.15",
+    "@types/glob": "^8.1.0",
+    "bun-types": "1.2.15",
+    "drizzle-kit": "^0.31.0",
+    "glob": "^11.0.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.2",
+    "vitest": "^3.1.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "bun": ">=1.0.0"
+  },
+  "packageManager": "bun@1.0.0",
+  "trustedDependencies": [
+    "better-sqlite3",
+    "esbuild"
+  ]
+}
