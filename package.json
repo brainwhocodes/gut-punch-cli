@@ -10,10 +10,8 @@
   },
   "types": "src/index.d.ts",
   "scripts": {
-    "build": "vite build",
-    "build:bun": "bun run bun-build.ts",
-    "dev": "vite",
-    "dev:bun": "bun --watch src/index.ts",
+    "build": "bun run bun-build.ts",
+    "dev": "bun --watch src/index.ts",
     "test": "bun test",
     "test:coverage": "bun test --coverage",
     "db:generate": "drizzle-kit generate",
@@ -38,9 +36,8 @@
     "drizzle-kit": "^0.31.0",
     "glob": "^11.0.1",
     "ts-node": "^10.9.2",
-    "typescript": "^5.8.3",
-    "vite": "^6.3.2",
-    "vitest": "^3.1.2"
+    "typescript": "^5.8.3"
+
   },
   "engines": {
     "node": ">=18.0.0",
