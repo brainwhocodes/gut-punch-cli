@@ -3,7 +3,9 @@ import { JobRunStatus } from "gut-punch";
 
 // No more BaseJob, GutPunchConfig, JobDb imports
 
-export class ExampleJob implements Job { // Implement Job
+export class ExampleJob implements Job {
+  /** Execute this job inside scheduler process (no subprocess) */
+  public static runInProcess: boolean = true; // Implement Job
   public readonly name: string = "ExampleJob";
   public readonly maxRetries: number = 3;
   public readonly backoffStrategy: BackoffStrategy = "exponential";
@@ -15,7 +17,7 @@ export class ExampleJob implements Job { // Implement Job
   public async run(params?: Record<string, unknown>): Promise<JobResult> { // Add optional params
     const now = new Date().toISOString();
     const message = `ExampleJob ran at ${now}. Params: ${JSON.stringify(params || {})}`;
-    console.log(`Job log: ${message}`); // Differentiate job's own console logs from the final JSON output
+    console.error(`Job log: ${message}`); // Differentiate job's own console logs from the final JSON output
     return {
       status: JobRunStatus.Success,
       output: { message: "Example job finished successfully!", receivedParams: params || {} },

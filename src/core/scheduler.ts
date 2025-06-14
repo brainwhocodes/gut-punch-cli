@@ -84,6 +84,8 @@ export class Scheduler {
               rescheduleIn: jobInstance.rescheduleIn,
               maxRetries: jobInstance.maxRetries,
               backoffStrategy: jobInstance.backoffStrategy,
+              runInProcess: (Exported as any).runInProcess ?? false,
+              ctor: Exported,
             };
 
             this.jobDefinitions[jobName] = jobDef;
@@ -114,16 +116,31 @@ export class Scheduler {
   }
 
   private scheduleJobs(): void {
-    this.pollingIntervalId = setInterval(() => {
-      this.pollAndEnqueueJobs().catch(err => console.error("[Scheduler] Error polling jobs:", err));
+    const loop = async () => {
+      await this.pollAndEnqueueJobs().catch(err => console.error("[Scheduler] Error polling jobs:", err));
       for (const queueName of Object.keys(this.queues)) {
-        this.runNextJob(queueName).catch(err => console.error(`[Scheduler] Error running job in queue ${queueName}:`, err));
+        await this.runNextJob(queueName).catch(err => console.error(`[Scheduler] Error running job in queue ${queueName}:`, err));
       }
-    }, 1000);
+
+      // Determine delay until next run
+      const nextRunIso = await this.db.getNextScheduledRun();
+      let delay = 1000; // default 1s fallback
+      if (nextRunIso) {
+        const diff = new Date(nextRunIso).getTime() - Date.now();
+        delay = Math.max(0, Math.min(diff, 30_000)); // cap at 30s
+      }
+      setTimeout(loop, delay);
+    };
+    loop();
   }
 
+  /**
+   * Poll for due jobs and enqueue them. Processes up to 50 at a time to
+   * reduce DB chatter while keeping latency low. This keeps the logic simple
+   * while still batching work.
+   */
   private async pollAndEnqueueJobs(): Promise<void> {
-    const rows = await this.db.getDueScheduledJobs(new Date().toISOString());
+    const rows = await this.db.getDueScheduledJobs(new Date().toISOString(), 50);
     for (const row of rows) {
       const jobDef = this.jobDefinitions[row.job_name];
       if (!jobDef) {
@@ -136,11 +153,10 @@ export class Scheduler {
       const runRecord: JobRunRecord = {
         job_name: row.job_name,
         queue_name: queueName,
-        priority: priority,
+        priority,
         status: JobRunStatus.Pending,
       };
       const runId = await this.db.insertJobRun(runRecord);
-
       this.queues[queueName].enqueue(jobDef, runId, priority);
       console.log(`[Scheduler] Enqueued job ${row.job_name} (runId: ${runId})`);
     }
@@ -155,19 +171,24 @@ export class Scheduler {
     await this.db.updateJobRun(runId, { status: JobRunStatus.Running, started_at: new Date().toISOString() });
 
     try {
-      const jobProcess = Bun.spawn(['bun', 'run', jobDef.filePath], {
-        stdio: ['ignore', 'pipe', 'pipe'],
-      });
-
-      const exitCode = await jobProcess.exited;
-      const stdout = await new Response(jobProcess.stdout).text();
-      const stderr = await new Response(jobProcess.stderr).text();
-
       let result: JobResult;
-      if (exitCode === 0) {
-        result = JSON.parse(stdout);
+      if (jobDef.runInProcess) {
+        // Execute directly
+        const instance = new jobDef.ctor();
+        result = await instance.run();
       } else {
-        throw new Error(`Exit Code ${exitCode}: ${stderr}`);
+        // Execute in subprocess (default)
+        const jobProcess = Bun.spawn(['bun', 'run', jobDef.filePath], {
+          stdio: ['ignore', 'pipe', 'pipe'],
+        });
+        const exitCode = await jobProcess.exited;
+        const stdout = await new Response(jobProcess.stdout).text();
+        const stderr = await new Response(jobProcess.stderr).text();
+        if (exitCode === 0) {
+          result = JSON.parse(stdout);
+        } else {
+          throw new Error(`Exit Code ${exitCode}: ${stderr}`);
+        }
       }
 
       await this.db.updateJobRun(runId, {

@@ -15,6 +15,13 @@
       "when": 1745290422034,
       "tag": "0001_bright_meltdown",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1749926690453,
+      "tag": "0002_skinny_the_phantom",
+      "breakpoints": true
     }
   ]
 }

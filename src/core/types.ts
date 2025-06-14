@@ -10,6 +10,10 @@ export type { Job, JobResult, BackoffStrategy };
  * information needed to execute it.
  */
 export interface JobDefinition {
+  /** Whether to execute the job within the scheduler process (no subprocess). */
+  runInProcess?: boolean;
+  /** Constructor of the job class for in-process execution. */
+  ctor: new () => Job;
   /** The absolute path to the job's executable TypeScript file. */
   filePath: string;
   /** The unique name of the job, typically from the job class. */

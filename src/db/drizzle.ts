@@ -70,7 +70,9 @@ export class JobDb {
   constructor(file: string /*, tablePrefix?: string */) { // Temporarily remove prefixing
     this.sqliteInstance = new Database(file);
     // Cast to any temporarily if schema type causes issues, then refine
-    this.db = drizzle(this.sqliteInstance, { schema }); 
+    this.db = drizzle(this.sqliteInstance, { schema });
+    // Ensure an index exists for faster lookup of due jobs
+    this.sqliteInstance.exec("CREATE INDEX IF NOT EXISTS idx_scheduled_next_run ON scheduled_jobs(next_run);");
     this.schema = schema;
     // this.tablePrefix = tablePrefix || ''; 
     // if (this.tablePrefix) {
@@ -161,12 +163,13 @@ export class JobDb {
    * @param now ISO string for current time
    * @returns Array of ScheduledJobRecord
    */
-  public async getDueScheduledJobs(now: string): Promise<ScheduledJobRecord[]> {
+  public async getDueScheduledJobs(now: string, limit: number = 50): Promise<ScheduledJobRecord[]> {
     console.log(`[DB] Querying due scheduled jobs at ${now}`);
     const rows = await this.db
       .select()
       .from(this.schema.scheduledJobs)
-      .where(sql`${this.schema.scheduledJobs.next_run} <= ${now}`);
+      .where(sql`${this.schema.scheduledJobs.next_run} <= ${now}`)
+      .limit(limit);
     return rows.map(row => ({
       job_name: row.job_name as string,
       next_run: row.next_run as string,
@@ -176,6 +179,19 @@ export class JobDb {
   /**
    * Get all scheduled jobs
    */
+  /**
+   * Return the soonest upcoming next_run timestamp or null when table is empty.
+   */
+  public async getNextScheduledRun(): Promise<string | null> {
+    const row = await this.db
+      .select({ next_run: this.schema.scheduledJobs.next_run })
+      .from(this.schema.scheduledJobs)
+      .orderBy(this.schema.scheduledJobs.next_run)
+      .limit(1)
+      .get();
+    return row?.next_run ?? null;
+  }
+
   public async getAllScheduledJobs(): Promise<ScheduledJobRecord[]> {
     console.log(`[DB] Querying all scheduled jobs`);
     const rows = await this.db.select().from(this.schema.scheduledJobs);
