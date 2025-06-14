@@ -3,7 +3,7 @@ import { join } from 'path';
 import { loadConfig } from './src/config/index';
 
 // Load GutPunchConfig to get database file path
-const config = loadConfig('config.yaml');
+const config = loadConfig('.');
 export default {
   schema: './src/db/schema.ts',
   out: './src/db/migrations',

@@ -23,6 +23,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "better-sqlite3": "11.10.0",
     "commander": "^13.1.0",
     "drizzle-orm": "^0.42.0",
     "yaml": "^2.7.1"
@@ -41,9 +42,5 @@
     "node": ">=18.0.0",
     "bun": ">=1.0.0"
   },
-  "packageManager": "bun@1.0.0",
-  "trustedDependencies": [
-    "better-sqlite3",
-    "esbuild"
-  ]
+  "packageManager": "bun@1.0.0"
 }

@@ -1,0 +1,10 @@
+database:
+  mode: "standalone"
+  file: "./tests/test.db"
+jobsDirectory: "tests/jobs"
+queues:
+  default:
+    priority: 1
+  critical:
+    priority: 10
+logLevel: "info"
