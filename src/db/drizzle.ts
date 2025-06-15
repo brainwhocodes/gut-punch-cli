@@ -5,8 +5,6 @@ import { Database } from "bun:sqlite";
 import { drizzle, type BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { eq, sql, lt } from "drizzle-orm";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
-import { readdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
 import * as schema from "./schema"; // Import all exports from schema
 import { JobRunStatus, JobDefinitionStatus } from "gut-punch";
 
