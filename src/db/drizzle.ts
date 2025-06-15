@@ -3,12 +3,12 @@
  */
 import { Database } from "bun:sqlite";
 import { drizzle, type BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, lt } from "drizzle-orm";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import * as schema from "./schema"; // Import all exports from schema
-import { JobRunStatus, JobDefinitionStatus } from "../core/enums"; // Import enums directly
+import { JobRunStatus, JobDefinitionStatus } from "gut-punch";
 
 /**
  * Create and export Drizzle DB instance using better-sqlite3.
@@ -104,6 +104,25 @@ export class JobDb {
     if (Object.keys(updates).length === 0) return;
     await this.db.update(this.schema.jobRuns).set(updates).where(eq(this.schema.jobRuns.id, id));
     console.log(`[DB] Updated job run id ${id}`);
+  }
+
+  /**
+   * Deletes job runs that finished before the specified date.
+   * @param retentionDateIso ISO string for the oldest date to keep.
+   */
+  public async deleteOldJobRuns(retentionDateIso: string): Promise<void> {
+    console.log(`[DB] Pruning job runs older than ${retentionDateIso}`);
+    try {
+      await this.db
+        .delete(this.schema.jobRuns)
+        .where(lt(this.schema.jobRuns.finished_at, retentionDateIso));
+      
+      // Bun's SQLite driver may not give a direct 'changes' count,
+      // but we can log that the operation was sent.
+      console.log(`[DB] Pruning command executed.`);
+    } catch (error) {
+      console.error(`[DB] Error pruning old job runs:`, error);
+    }
   }
 
   /**

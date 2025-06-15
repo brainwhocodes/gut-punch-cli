@@ -3,15 +3,17 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { loadConfig, GutPunchConfig, findConfigDir } from "../config/index";
 import { JobDb, JobRunRecord } from "../db/drizzle";
-import { JobRunStatus, QueuePriority, JobDefinitionStatus } from "./enums";
+import { JobRunStatus, QueuePriority, JobDefinitionStatus } from "gut-punch";
 import { PriorityQueue } from "./queue";
-import type { Job, JobDefinition, JobResult } from './types';
+import type { Job, JobDefinition, JobResult } from 'gut-punch';
 
 export class Scheduler {
   private readonly config: GutPunchConfig;
   private readonly configDir: string;
   private readonly db: JobDb;
   private readonly queues: Record<string, PriorityQueue> = {};
+  /** Tracks number of jobs currently executing per queue to honor concurrency limits */
+  private readonly activeRuns: Record<string, number> = {};
   private readonly jobDefinitions: Record<string, JobDefinition> = {};
   private pollingIntervalId: Timer | null = null;
 
@@ -31,9 +33,10 @@ export class Scheduler {
         throw new Error(`[Scheduler] Unsupported database mode: ${this.config.database.mode}`);
       }
 
-      const queueNames = ['high', 'default', 'low'];
+      const queueNames = Array.from(new Set(['high', 'default', 'low', ...Object.keys(this.config.queues)]));
       for (const name of queueNames) {
         this.queues[name] = new PriorityQueue();
+        this.activeRuns[name] = 0;
       }
       console.log(`[Scheduler] Initialization complete.`);
     } catch (error: any) {
@@ -85,6 +88,7 @@ export class Scheduler {
               maxRetries: jobInstance.maxRetries,
               backoffStrategy: jobInstance.backoffStrategy,
               runInProcess: (Exported as any).runInProcess ?? false,
+              run: jobInstance.run,
               ctor: Exported,
             };
 
@@ -92,7 +96,7 @@ export class Scheduler {
             await this.db.upsertJobDefinition({
               job_name: jobName,
               status: JobDefinitionStatus.Active,
-              reschedule: jobDef.reschedule,
+              reschedule: jobDef.reschedule ?? false,
               reschedule_in: jobDef.rescheduleIn ?? null,
             });
 
@@ -163,11 +167,18 @@ export class Scheduler {
   }
 
   private async runNextJob(queueName: string): Promise<void> {
+    const maxConcurrency = this.config.queues[queueName]?.concurrency ?? 1;
+    if (this.activeRuns[queueName] >= maxConcurrency) {
+      return; // Reached concurrency limit, skip for now
+    }
     const queueItem = this.queues[queueName].dequeue();
     if (!queueItem) return;
 
     const { job: jobDef, runId } = queueItem;
     console.log(`[Scheduler] Running job ${jobDef.name} (runId: ${runId}) from ${jobDef.filePath}`);
+    // Increment running count
+    this.activeRuns[queueName]++;
+
     await this.db.updateJobRun(runId, { status: JobRunStatus.Running, started_at: new Date().toISOString() });
 
     try {
@@ -178,7 +189,7 @@ export class Scheduler {
         result = await instance.run();
       } else {
         // Execute in subprocess (default)
-        const jobProcess = Bun.spawn(['bun', 'run', jobDef.filePath], {
+        const jobProcess = Bun.spawn(['bun', 'run', jobDef.filePath || ""], {
           stdio: ['ignore', 'pipe', 'pipe'],
         });
         const exitCode = await jobProcess.exited;
@@ -212,6 +223,10 @@ export class Scheduler {
         finished_at: new Date().toISOString(),
         error: error.message,
       });
+    } finally {
+      if (this.activeRuns[queueName] > 0) {
+        this.activeRuns[queueName]--;
+      }
     }
   }
 

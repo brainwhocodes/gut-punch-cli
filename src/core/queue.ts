@@ -1,14 +1,14 @@
 /**
  * Priority queue implementation for Gut Punch.
  */
-import type { JobDefinition } from "./types";
+import type { JobDefinition, QueuePriority } from "gut-punch";
 
 /**
  * Queue item structure.
  */
 export interface QueueItem {
   job: JobDefinition;
-  priority: number;
+  priority: QueuePriority;
   runId: number;
 }
 
@@ -19,7 +19,7 @@ export class PriorityQueue {
   private readonly items: QueueItem[] = [];
 
   /** Add a job to the queue. */
-  public enqueue(job: JobDefinition, runId: number, priority: number): void {
+  public enqueue(job: JobDefinition, runId: number, priority: QueuePriority): void {
     const item: QueueItem = { job, runId, priority };
     this.items.push(item);
     this.items.sort((a, b) => a.priority - b.priority); // Sort ascending (lower value = higher priority)

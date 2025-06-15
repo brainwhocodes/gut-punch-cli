@@ -7,7 +7,7 @@
         "better-sqlite3": "11.10.0",
         "commander": "^13.1.0",
         "drizzle-orm": "^0.42.0",
-        "gut-punch": "link:gut-punch",
+        "gut-punch": "latest",
         "yaml": "^2.7.1",
       },
       "devDependencies": {
@@ -185,7 +185,7 @@
 
     "glob": ["glob@11.0.2", "", { "dependencies": { "foreground-child": "^3.1.0", "jackspeak": "^4.0.1", "minimatch": "^10.0.0", "minipass": "^7.1.2", "package-json-from-dist": "^1.0.0", "path-scurry": "^2.0.0" }, "bin": { "glob": "dist/esm/bin.mjs" } }, "sha512-YT7U7Vye+t5fZ/QMkBFrTJ7ZQxInIUjwyAjVj84CYXqgBdv30MFUPGnBR6sQaVq6Is15wYJUsnzTuWaGRBhBAQ=="],
 
-    "gut-punch": ["gut-punch@link:gut-punch", {}],
+    "gut-punch": ["gut-punch@0.1.7", "", { "dependencies": { "yaml": "^2.7.1" } }, "sha512-WuQWiERpqKH5phs5ZogclAaUpanoKHxrql+iE1OeZPyzzdOQktf629Qx0pNE9BqVm8VRKW6HziiUnB9TYUrznw=="],
 
     "ieee754": ["ieee754@1.2.1", "", {}, "sha512-dcyqhDvX1C46lXZcVqCpK+FtMRQVdIMN6/Df5js2zouUsqG7I6sFxitIC+7KYK29KdXOLHdu9zL4sFnoVQnqaA=="],
 

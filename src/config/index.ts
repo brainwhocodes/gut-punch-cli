@@ -28,9 +28,10 @@ export interface GutPunchConfig {
     mode: "standalone" | "external"; // Add mode
     tablePrefix?: string;
   };
-  queues: Record<string, { priority: number }>;
+  queues: Record<string, { priority: number; concurrency?: number }>;
   jobsDirectory: string;
   logLevel?: LogLevel; // Use specific LogLevel type
+  jobRunRetentionDays?: number;
 }
 
 /**
@@ -154,11 +155,24 @@ export function loadConfig(configDir: string = "."): GutPunchConfig { // Added d
     if (!parsedConfig.queues || typeof parsedConfig.queues !== 'object') {
       throw new Error("Invalid configuration: 'queues' section is missing or not an object.");
     }
+    // Validate each queue entry for required properties
+    for (const [queueName, queueCfg] of Object.entries(parsedConfig.queues)) {
+      if (typeof queueCfg.priority !== 'number') {
+        throw new Error(`Invalid configuration: queue '${queueName}' must specify numeric 'priority'.`);
+      }
+      if (queueCfg.concurrency !== undefined && (typeof queueCfg.concurrency !== 'number' || queueCfg.concurrency <= 0)) {
+        throw new Error(`Invalid configuration: queue '${queueName}' has invalid 'concurrency' (positive number expected).`);
+      }
+    } // Added closing bracket here
+
     if (typeof parsedConfig.jobsDirectory !== 'string' || !parsedConfig.jobsDirectory) {
       throw new Error("Invalid configuration: 'jobsDirectory' is missing or not a non-empty string.");
     }
     if (parsedConfig.logLevel !== undefined && !isLogLevel(parsedConfig.logLevel)) {
       throw new Error(`Invalid configuration: 'logLevel' must be one of 'debug', 'info', 'warn', 'error'. Found: ${parsedConfig.logLevel}`);
+    }
+    if (parsedConfig.jobRunRetentionDays !== undefined && (typeof parsedConfig.jobRunRetentionDays !== 'number' || parsedConfig.jobRunRetentionDays <= 0)) {
+      throw new Error("Invalid configuration: 'jobRunRetentionDays' must be a positive number.");
     }
 
     // --- Environment Variable Overrides with Validation ---
@@ -171,6 +185,7 @@ export function loadConfig(configDir: string = "."): GutPunchConfig { // Added d
       queues: parsedConfig.queues,
       jobsDirectory: (process.env.GUTPUNCH_JOBS_DIR as string) || parsedConfig.jobsDirectory,
       logLevel: (process.env.GUTPUNCH_LOG_LEVEL as LogLevel) || parsedConfig.logLevel || "info",
+      jobRunRetentionDays: parsedConfig.jobRunRetentionDays,
     };
     console.log(`[Config Debug] Constructed finalConfig.database.mode: ${finalConfig.database.mode}, type: ${typeof finalConfig.database.mode}`);
 
