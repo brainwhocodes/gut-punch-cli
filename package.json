@@ -1,6 +1,6 @@
 {
   "name": "gut-punch-cli",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "type": "module",
   "description": "CLI for scheduling and running GutPunch jobs",
   "main": "src/index.ts",
